@@ -1,12 +1,12 @@
 import re
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, validator
 from app.config import Role
-from app.database import session_maker
+from app.database import User, session_maker
 from sqlalchemy import select, exc
 
 
 class UserDAO:
-    model = None
+    model = User
     
     @classmethod
     async def find_all(cls,  **filter_by):
