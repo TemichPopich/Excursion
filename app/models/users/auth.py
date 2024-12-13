@@ -1,7 +1,10 @@
 from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta, timezone
+
+from pydantic import EmailStr
 from app.config import get_auth_data
+from app.models.users.base import RBUser, UserDAO
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -22,3 +25,11 @@ def create_access_token(data: dict) -> str:
     auth_data = get_auth_data()
     encode_jwt = jwt.encode(to_encode, auth_data['secret_key'], algorithm=auth_data['algorithm'])
     return encode_jwt
+
+
+async def authenticate_user(username: str, password: str):
+    userRB = RBUser(username=username)
+    user = await UserDAO.find_one_or_none(userRB)
+    if not user or verify_password(plain_password=password, hashed_password=user.password) is False:
+        return None
+    return user

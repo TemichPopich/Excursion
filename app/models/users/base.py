@@ -1,10 +1,34 @@
 import re
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, validator
-from app.config import Role
 from app.database import User, session_maker
 from sqlalchemy import select, exc
 
 
+class UserAuthSchema(BaseModel):
+    email: EmailStr = Field(..., description="Электронная почта")
+    password: str = Field(..., min_length=5, max_length=50, description="Пароль, от 5 до 50 знаков")
+
+
+class PostUserSchema(UserAuthSchema):
+    model_config = ConfigDict(from_attributes=True)
+    __abstarct__ = True
+    
+    username: str = Field(..., min_length=1, max_length=50)
+    phone: str
+    avatar = None
+    role = "client"
+    
+    @validator("phone")
+    def validate_phone_number(cls, value):
+        if not re.match(r'^\+\d{1,15}$', value):
+            raise ValueError('Номер телефона должен начинаться с "+" и содержать от 1 до 15 цифр')
+        return value  
+
+
+class GetUserSchema(PostUserSchema):
+    id: int   
+    
+    
 class UserDAO:
     model = User
     
@@ -18,6 +42,18 @@ class UserDAO:
             )
             result = await session.execute(query)
             return result.scalars().all()
+        
+        
+    @classmethod
+    async def find_one_or_none(cls,  **filter_by) -> GetUserSchema:
+        async with session_maker() as session:
+            query = (
+                select(cls.model)
+                # .options(selectinload(Client.favs))
+                .filter_by(**filter_by)
+            )
+            result = await session.execute(query)
+            return result.scalar_one_or_none()   
         
         
     @classmethod
@@ -45,26 +81,6 @@ class UserDAO:
             return new_instance
         
         
-class PostUserSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    __abstarct__ = True
-    
-    username: str = Field(..., min_length=1, max_length=50)
-    password: str
-    email: EmailStr
-    phone: str
-    avatar = None
-    role = "client"
-    
-    @validator("phone")
-    def validate_phone_number(cls, value):
-        if not re.match(r'^\+\d{1,15}$', value):
-            raise ValueError('Номер телефона должен начинаться с "+" и содержать от 1 до 15 цифр')
-        return value  
-
-
-class GetUserSchema(PostUserSchema):
-    id: int   
     
     
 class RBUser:
